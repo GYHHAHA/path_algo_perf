@@ -1,5 +1,7 @@
 from networkx import gnp_random_graph
 from networkx.linalg.graphmatrix import adjacency_matrix
+from tqdm import tqdm
+from bfs_numba_impl import numba_bfs
 from datetime import datetime
 import numpy as np
 import algos
@@ -37,10 +39,11 @@ def generate_adj_matrixs(N=1, seed=42):
 
     np.random.seed(seed)
 
-    print("Total Matrix Counts:", N)
+    print("[Data] Total Matrix Counts:", N)
+    print("[Data] Matrix Preparing ...")
 
     adj_matrixs = []
-    for _ in range(N):
+    for _ in tqdm(range(N)):
         n = np.random.randint(20, 100)
         p = np.random.uniform(0.05, 0.5)
         graph = gnp_random_graph(n=n, p=p)
@@ -53,11 +56,14 @@ def generate_edge_feats(adj_matrixs, seed=42):
 
     np.random.seed(seed)
 
+    print("[Data] Edge Feature Preparing ...")
+
     edge_feats = []
-    for adj in adj_matrixs:
+    for adj in tqdm(adj_matrixs):
         edge_shp = (adj.shape[0], adj.shape[1], 3)
         edge_feat = np.random.randint(0, 5, edge_shp)
         edge_feat = edge_feat.astype("int64")
+        edge_feat *= np.expand_dims(adj, -1)
         edge_feats.append(edge_feat)
 
     return edge_feats
@@ -70,7 +76,7 @@ def test_algo_correctness(adj_matrixs, edge_feats, max_dist=5):
     N = len(adj_matrixs)
     assert len(edge_feats) == N
 
-    for i in range(N):
+    for i in tqdm(range(N)):
 
         adj, edge = adj_matrixs[i], edge_feats[i]
 
@@ -81,10 +87,16 @@ def test_algo_correctness(adj_matrixs, edge_feats, max_dist=5):
         # bfs algo
         res = algos.get_source_spatial_pos_and_edge_input(adj, edge, max_dist)
 
+        # bfs (numba) algo
+        res_nb = numba_bfs(adj, edge, max_dist)
+
         assert compare(shorest_path, res[0])
         # since shortest path is not unique
         # thus the following check is ommitted:
         # assert compare(edge_input_fw, res[1])
+
+        assert compare(res[0], res_nb[0])
+        assert compare(res[1], res_nb[1])
 
 def benchmark_old(adj_matrixs, edge_feats, max_dist=5):
     cur = datetime.now()
@@ -95,7 +107,7 @@ def benchmark_old(adj_matrixs, edge_feats, max_dist=5):
         shorest_path, path = algos.floyd_warshall(adj)
         edge_input_fw = algos.gen_edge_input(max_dist, path, edge)
 
-    print("Time Count for Floyd: ", datetime.now() - cur)
+    print("[Benchmark] Time Count for Floyd: ", datetime.now() - cur)
 
 def benchmark_new(adj_matrixs, edge_feats, max_dist=5):
     cur = datetime.now()
@@ -105,16 +117,32 @@ def benchmark_new(adj_matrixs, edge_feats, max_dist=5):
         adj, edge = adj_matrixs[i], edge_feats[i]
         res = algos.get_source_spatial_pos_and_edge_input(adj, edge, max_dist)
 
-    print("Time Count for BFS: ", datetime.now() - cur)
+    print("[Benchmark] Time Count for BFS: ", datetime.now() - cur)
+
+def benchmark_numba(adj_matrixs, edge_feats, max_dist=5):
+    cur = datetime.now()
+
+    N = len(adj_matrixs)
+    for i in range(N):
+        adj, edge = adj_matrixs[i], edge_feats[i]
+        res = numba_bfs(adj, edge, max_dist)
+
+    print("[Benchmark] Time Count for BFS (Numba): ", datetime.now() - cur)
 
 def main():
 
-    adj_matrixs = generate_adj_matrixs(N=1000)
+    adj_matrixs = generate_adj_matrixs(N=5000)
     edge_feats = generate_edge_feats(adj_matrixs)
 
+    print("[Testing] Test Correctness ...")
+
     test_algo_correctness(adj_matrixs, edge_feats)
+
+    print("[Benchmark] Start ...")
+
     benchmark_old(adj_matrixs, edge_feats)
     benchmark_new(adj_matrixs, edge_feats)
+    benchmark_numba(adj_matrixs, edge_feats)
 
 if __name__ == "__main__":
 
