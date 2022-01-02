@@ -63,10 +63,10 @@ def get_full_path(path, edge_type, max_dist, cur_node):
     return edge_input
 
 @njit(parallel=True)
-def numba_bfs(
+def bfs_numba_spatial_pos_and_edge_input(
     adj_matrix,
     edge_type,
-    max_dist,
+    max_dist=5,
 ):
     n = adj_matrix.shape[0]
     edge_type_shape = edge_type.shape[2]

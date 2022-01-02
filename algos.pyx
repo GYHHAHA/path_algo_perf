@@ -7,7 +7,7 @@ from cython.parallel cimport prange, parallel
 cimport numpy
 import numpy
 
-def floyd_warshall(adjacency_matrix):
+cdef floyd_warshall(adjacency_matrix):
 
     (nrows, ncols) = adjacency_matrix.shape
     assert nrows == ncols
@@ -16,7 +16,6 @@ def floyd_warshall(adjacency_matrix):
     adj_mat_copy = adjacency_matrix.astype(long, order='C', casting='safe', copy=True)
     assert adj_mat_copy.flags['C_CONTIGUOUS']
     cdef numpy.ndarray[long, ndim=2, mode='c'] M = adj_mat_copy
-    #cdef numpy.ndarray[long, ndim=2, mode='c'] path = numpy.zeros([n, n], dtype=numpy.int64)
     cdef numpy.ndarray[long, ndim=2, mode='c'] path = - numpy.ones([n, n], dtype=numpy.int64)
 
     cdef unsigned int i, j, k
@@ -56,16 +55,16 @@ def floyd_warshall(adjacency_matrix):
     return M, path
 
 
-def get_all_edges(path, i, j):
+cdef get_all_edges(path, i, j):
     cdef int k = path[i][j]
-    #if k == 0:
     if k == -1:
         return []
     else:
         return get_all_edges(path, i, k) + [k] + get_all_edges(path, k, j)
 
+def fw_spatial_pos_and_edge_input(adj, edge_feat, max_dist=5):
 
-def gen_edge_input(max_dist, path, edge_feat):
+    shortest_path_result, path = floyd_warshall(adj)
 
     (nrows, ncols) = path.shape
     assert nrows == ncols
@@ -91,7 +90,7 @@ def gen_edge_input(max_dist, path, edge_feat):
             for k in range(num_path):
                 edge_fea_all[i, j, k, :] = edge_feat_copy[path[k], path[k+1], :]
 
-    return edge_fea_all
+    return shortest_path_result, edge_fea_all
 
 from libcpp.vector cimport vector
 from libcpp.queue cimport queue
@@ -171,10 +170,10 @@ cdef get_full_path(
 
     return edge_input
 
-def get_source_spatial_pos_and_edge_input(
-    int[:, :] adj_matrix,
+def bfs_spatial_pos_and_edge_input(
+    np.int64_t[:, :] adj_matrix,
     np.int64_t[:, :, :] edge_type,
-    int max_dist,
+    int max_dist=5
 ):
 
     cdef:
@@ -205,13 +204,13 @@ def get_source_spatial_pos_and_edge_input(
         for j in range(n):
             if dist[j] != -1:
                 spatial_pos[i, j] = dist[j]
-    
+
     return np.asarray(spatial_pos), np.asarray(edge_input)
 
-def get_target_spatial_pos_and_edge_input(
-    int[:, :] adj_matrix,
+def bfs_target_spatial_pos_and_edge_input(
+    np.int64_t[:, :] adj_matrix,
     np.int64_t[:, :, :] edge_type,
-    int max_dist,
+    int max_dist=5,
 ):
 
     cdef:
