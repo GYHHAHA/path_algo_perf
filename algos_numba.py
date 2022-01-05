@@ -94,3 +94,37 @@ def bfs_numba_spatial_pos_and_edge_input(
                 spatial_pos[i, j] = dist[j]
 
     return spatial_pos, edge_input
+
+def bfs_numba_target_spatial_pos_and_edge_input(
+    adj_matrix,
+    edge_type,
+    max_dist=5,
+):
+    n = adj_matrix.shape[0]
+    edge_type_shape = edge_type.shape[2]
+    edge_input = np.full(
+        shape=(n, n, max_dist, edge_type_shape),
+        fill_value=-1,
+    )
+    spatial_pos = np.full((n ,n), 510)
+    adj_list = np.full((n ,n), -1)
+    offset = np.full(n, 0)
+
+    for i in range(n):
+        for j in range(i+1):
+            if adj_matrix[i, j] == 1:
+                adj_list[i, offset[i]] = j
+                offset[i] += 1
+        for j in range(i):
+            if adj_matrix[i, j] == 1:
+                adj_list[j, offset[j]] = i
+                offset[j] += 1
+        dist, path = bfs_shortest_path(adj_list, i)
+        edge_input[i] = get_full_path(
+            path, edge_type, max_dist, i
+        )
+        for j in range(i+1):
+            if dist[j] != -1:
+                spatial_pos[i, j] = dist[j]
+
+    return spatial_pos, edge_input

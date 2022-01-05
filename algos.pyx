@@ -170,10 +170,10 @@ cdef get_full_path(
 
     return edge_input
 
-def bfs_spatial_pos_and_edge_input(
+def get_source_spatial_pos_and_edge_input(
     np.int64_t[:, :] adj_matrix,
     np.int64_t[:, :, :] edge_type,
-    int max_dist=5
+    int max_dist,
 ):
 
     cdef:
@@ -204,13 +204,13 @@ def bfs_spatial_pos_and_edge_input(
         for j in range(n):
             if dist[j] != -1:
                 spatial_pos[i, j] = dist[j]
-
+    
     return np.asarray(spatial_pos), np.asarray(edge_input)
 
-def bfs_target_spatial_pos_and_edge_input(
+def get_target_spatial_pos_and_edge_input(
     np.int64_t[:, :] adj_matrix,
     np.int64_t[:, :, :] edge_type,
-    int max_dist=5,
+    int max_dist,
 ):
 
     cdef:
